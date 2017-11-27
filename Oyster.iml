@@ -60,5 +60,21 @@
         <jarDirectory url="file://$MODULE_DIR$/../jmock-2.6.0" recursive="false" type="SOURCES" />
       </library>
     </orderEntry>
+    <orderEntry type="module-library">
+      <library>
+        <CLASSES>
+          <root url="file://$MODULE_DIR$/../joda-time-2.1" />
+        </CLASSES>
+        <JAVADOC />
+        <SOURCES>
+          <root url="file://$MODULE_DIR$/../joda-time-2.1" />
+          <root url="file://$MODULE_DIR$/../joda-time-2.1/src/example" />
+          <root url="file://$MODULE_DIR$/../joda-time-2.1/src/main/java" />
+          <root url="file://$MODULE_DIR$/../joda-time-2.1/src/test/java" />
+        </SOURCES>
+        <jarDirectory url="file://$MODULE_DIR$/../joda-time-2.1" recursive="false" />
+        <jarDirectory url="file://$MODULE_DIR$/../joda-time-2.1" recursive="false" type="SOURCES" />
+      </library>
+    </orderEntry>
   </component>
 </module>
