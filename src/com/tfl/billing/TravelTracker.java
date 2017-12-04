@@ -1,91 +1,43 @@
 package com.tfl.billing;
 
-import com.oyster.*;
 import com.tfl.external.Customer;
-import com.tfl.external.CustomerDatabase;
-import com.tfl.external.PaymentsSystem;
 
 import java.math.BigDecimal;
-import java.util.*;
+import java.util.List;
 
-public class TravelTracker implements ScanListener {
+public class TravelTracker {
 
 
-    private final List<JourneyEvent> eventLog = new ArrayList<JourneyEvent>();
-    private final Set<UUID> currentlyTravelling = new HashSet<UUID>();
+    private Database customerDatabase;
+    private GeneralPaymentsSystem paymentsSystem;
+    private Fare fareCalculator = new Fare();
+    private EventLog eventLogger = new EventLog();
+
+    public TravelTracker(EventLog eventLogger) {
+        this.customerDatabase = CustomerDatabaseAdapter.getInstance();
+        this.paymentsSystem = PaymentsSystemAdapter.getInstance();
+        this.eventLogger = eventLogger;
+    }
+
+
+    public TravelTracker(Database custDatabase, GeneralPaymentsSystem generalPaymentsSystem, EventLog eventLogger) {
+        this.customerDatabase = custDatabase;
+        this.paymentsSystem = generalPaymentsSystem;
+        this.eventLogger = eventLogger;
+    }
 
     public void chargeAccounts() {
-        CustomerDatabase customerDatabase = CustomerDatabase.getInstance();
 
-        List<Customer> customers = customerDatabase.getCustomers();
-        for (Customer customer : customers) {
-            totalJourneysFor(customer);
+        List<JourneyEvent> eventLog = eventLogger.getEventLog();
+        for (Customer customer : customerDatabase.getCustomers()) {
+            List<JourneyEvent> customerJourneyEvents = new CustomerJourneyEvents(customer, eventLog).createCustomerJourneyEvents();
+            List<Journey> journeys = new Journeys(customerJourneyEvents).createListOfJourneysForCustomer();
+            BigDecimal customerTotalCost = fareCalculator.customerTotalCost(journeys);
+            paymentsSystem.charge(customer, journeys, roundToNearestPenny(customerTotalCost));
         }
-    }
-
-    private void totalJourneysFor(Customer customer) {
-        List<JourneyEvent> customerJourneyEvents = getCustomerJourneyEvents(customer);
-
-        List<Journey> journeys = getJourneys(customerJourneyEvents);
-
-        BigDecimal customerTotalCost = Fare.customerTotalCost(journeys);
-
-        chargeIndividualCustomer(customer, journeys, customerTotalCost);
-    }
-
-    private List<Journey> getJourneys(List<JourneyEvent> customerJourneyEvents) {
-        List<Journey> journeys = new ArrayList<Journey>();
-
-        JourneyEvent start = null;
-        for (JourneyEvent event : customerJourneyEvents) {
-            if (event instanceof JourneyStart) {
-                start = event;
-            }
-            if (event instanceof JourneyEnd && start != null) {
-                journeys.add(new Journey(start, event));
-                start = null;
-            }
-        }
-        return journeys;
-    }
-
-    private List<JourneyEvent> getCustomerJourneyEvents(Customer customer) {
-        List<JourneyEvent> customerJourneyEvents = new ArrayList<JourneyEvent>();
-        for (JourneyEvent journeyEvent : eventLog) {
-            if (journeyEvent.cardId().equals(customer.cardId())) {
-                customerJourneyEvents.add(journeyEvent);
-            }
-        }
-        return customerJourneyEvents;
-    }
-
-    public void connect(OysterCardReader... cardReaders) {
-        for (OysterCardReader cardReader : cardReaders) {
-            cardReader.register(this);
-        }
-    }
-
-    private void chargeIndividualCustomer(Customer customer, List<Journey> journeys, BigDecimal customerTotal) {
-        PaymentsSystem.getInstance().charge(customer, journeys, roundToNearestPenny(customerTotal));
     }
 
     private BigDecimal roundToNearestPenny(BigDecimal poundsAndPence) {
         return poundsAndPence.setScale(2, BigDecimal.ROUND_HALF_UP);
     }
-
-    @Override
-    public void cardScanned(UUID cardId, UUID readerId) {
-        if (currentlyTravelling.contains(cardId)) {
-            eventLog.add(new JourneyEnd(cardId, readerId));
-            currentlyTravelling.remove(cardId);
-        } else {
-            if (CustomerDatabase.getInstance().isRegisteredId(cardId)) {
-                currentlyTravelling.add(cardId);
-                eventLog.add(new JourneyStart(cardId, readerId));
-            } else {
-                throw new UnknownOysterCardException(cardId);
-            }
-        }
-    }
-
 }

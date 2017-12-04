@@ -1,6 +1,8 @@
 package com.tfl.billing;
 
 
+import org.joda.time.DateTime;
+
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.UUID;
@@ -19,29 +21,36 @@ public class Journey {
         return start.readerId();
     }
 
+
     public UUID destinationId() {
         return end.readerId();
     }
+
 
     public String formattedStartTime() {
         return format(start.time());
     }
 
+
     public String formattedEndTime() {
         return format(end.time());
     }
 
-    public Date startTime() {
-        return new Date(start.time());
+
+    public DateTime startTime() {
+        return new DateTime(start.time());
     }
 
-    public Date endTime() {
-        return new Date(end.time());
+
+    public DateTime endTime() {
+        return new DateTime(end.time());
     }
+
 
     public int durationSeconds() {
         return (int) ((end.time() - start.time()) / 1000);
     }
+
 
     public String durationMinutes() {
         return "" + durationSeconds() / 60 + ":" + durationSeconds() % 60;
@@ -49,5 +58,13 @@ public class Journey {
 
     private String format(long time) {
         return SimpleDateFormat.getInstance().format(new Date(time));
+    }
+
+    public JourneyEvent getStart() {
+        return start;
+    }
+
+    public JourneyEvent getEnd() {
+        return end;
     }
 }
