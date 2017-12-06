@@ -6,13 +6,12 @@ import com.tfl.underground.OysterReaderLocator;
 import com.tfl.underground.Station;
 public class Main {
     public static void main(String[] args) throws Exception {
-        OysterCard myCard = new OysterCard(CustomerDatabaseAdapter.getInstance().getCustomers().get(0).cardId().toString());
+        OysterCard myCard = new OysterCard(new CustomerDatabaseAdapter(CustomerDatabase.getInstance()).getCustomers().get(0).cardId().toString());
         OysterCardReader paddingtonReader = OysterReaderLocator.atStation(Station.PADDINGTON);
         OysterCardReader bakerStreetReader = OysterReaderLocator.atStation(Station.BAKER_STREET);
         OysterCardReader kingsCrossReader = OysterReaderLocator.atStation(Station.KINGS_CROSS);
-        EventLog eventLogger = new EventLog();
-        TravelTracker travelTracker = new TravelTracker(eventLogger);
-        eventLogger.connect(paddingtonReader, bakerStreetReader, kingsCrossReader);
+        TravelTracker travelTracker = new TravelTracker();
+        travelTracker.connect(paddingtonReader, bakerStreetReader, kingsCrossReader);
 
 
         paddingtonReader.touch(myCard);
@@ -25,6 +24,6 @@ public class Main {
         travelTracker.chargeAccounts();
     }
     private static void minutesPass(int n) throws InterruptedException {
-        Thread.sleep(n*60*1000 );
+        Thread.sleep(n*60 );
     }
 }

@@ -7,22 +7,19 @@ import java.util.List;
 import java.util.UUID;
 
 public class CustomerDatabaseAdapter implements Database {
-    private static CustomerDatabaseAdapter instance = new CustomerDatabaseAdapter();
-    private CustomerDatabase customerDatabase = CustomerDatabase.getInstance();
+    private CustomerDatabase database;
 
-    public static CustomerDatabaseAdapter getInstance()
-    {
-        return instance;
+    public CustomerDatabaseAdapter(CustomerDatabase customerDatabase) {
+        this.database = customerDatabase;
     }
 
     @Override
-    public List<Customer> getCustomers()
-    {
-        return customerDatabase.getCustomers();
+    public List<Customer> getCustomers() {
+        return database.getCustomers();
     }
+
     @Override
-    public boolean isRegisteredId(UUID cardID)
-    {
-        return customerDatabase.isRegisteredId(cardID);
+    public boolean isRegisteredId(UUID cardID) {
+        return database.isRegisteredId(cardID);
     }
 }

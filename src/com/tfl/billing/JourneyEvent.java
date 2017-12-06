@@ -29,7 +29,6 @@ public abstract class JourneyEvent {
         return cardId;
     }
 
-
     public UUID readerId() {
         return readerId;
     }
@@ -37,4 +36,6 @@ public abstract class JourneyEvent {
     public long time() {
         return time;
     }
+    //for testing
+    public void setTime(DateTime dateTime){this.time = dateTime.getMillis();}
 }

@@ -1,172 +1,176 @@
 package Test;
 
+import com.oyster.OysterCard;
+import com.oyster.OysterCardReader;
 import com.tfl.billing.*;
+import com.tfl.external.Customer;
 import com.tfl.underground.OysterReaderLocator;
 import com.tfl.underground.Station;
 import org.jmock.Expectations;
-import org.junit.Before;
-import org.junit.Test;
-
 import org.jmock.integration.junit4.JUnitRuleMockery;
-import org.junit.Rule;
-
-
-import com.oyster.*;
-import com.tfl.external.Customer;
+import org.joda.time.DateTime;
+import org.junit.Test;
 
 import java.math.BigDecimal;
 import java.util.*;
 
-import com.oyster.OysterCard;
-
 import static org.hamcrest.core.Is.is;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 public class TravelTrackerTest {
 
-    private OysterCardReader startReader = OysterReaderLocator.atStation(Station.MARYLEBONE);
-    private OysterCardReader endReader = OysterReaderLocator.atStation(Station.BAKER_STREET);
+    private final JUnitRuleMockery context = new JUnitRuleMockery();
+    private final List<JourneyEvent> eventLogForTesting = new ArrayList<>();
+    private final Set<UUID> currentlyTravellingSetForTesting = new HashSet<>();
 
+    private final Database mockCustomerDatabase = context.mock(Database.class);
+    private final GeneralPaymentsSystem mockPaymentsSystem  = context.mock(GeneralPaymentsSystem.class);
+    private final Fare costCalculator = context.mock(Fare.class);
 
-    private final OysterCard registeredCard = new OysterCard(CustomerDatabaseAdapter.getInstance().getCustomers().get(0).cardId().toString());
-
-    @Rule
-    public JUnitRuleMockery context = new JUnitRuleMockery();
-
-    private Database mockCustomerDatabase = context.mock(Database.class);
-    private GeneralPaymentsSystem mockPaymentsSystem = context.mock(GeneralPaymentsSystem.class);
-    private EventLog eventLogger;
-    private List<JourneyEvent> eventLog;
-    private List<JourneyEvent> customerJourneyEventsList;
-
-    @Before
-    public void initialize() {
-        eventLogger = new EventLog();
-        eventLogger.connect(startReader, endReader);
-    }
-
-    private List<JourneyEvent> createCustomerJourneyEventsListForTesting() {
-        startReader.touch(registeredCard);
-        endReader.touch(registeredCard);
-
-        Customer customer = new Customer("Naum Anteski", registeredCard);
-        String fakeOysterId = CustomerDatabaseAdapter.getInstance().getCustomers().get(5).cardId().toString();
-
-        OysterCard oysterCard = new OysterCard(fakeOysterId);
-        startReader.touch(oysterCard);
-        eventLog = eventLogger.getEventLog();
-        return new CustomerJourneyEvents(customer, eventLog).createCustomerJourneyEvents();
-    }
+    private final TravelTracker travelTracker = new TravelTracker(eventLogForTesting,
+            currentlyTravellingSetForTesting, mockCustomerDatabase,mockPaymentsSystem,costCalculator);
 
     @Test
-    public void checkTouchingOysterCardAddsJourneyEventInEventLog()
+    public void checkScanningOysterCardCreatesProperJourneyEventInEventLog()
     {
-        startReader.touch(registeredCard);
-        eventLog = eventLogger.getEventLog();
-        assertTrue(eventLog.size() == 1 && eventLog.get(0).cardId().equals(registeredCard.id()));
-        endReader.touch(registeredCard);assertTrue(eventLog.size() == 2 && eventLog.get(1).cardId().equals(registeredCard.id()));
-    }
-    @Test
-    public void checkJourneysCorrectlyAddedAndRemovedInCurrentlyTravellingSet(){
+        UUID firstCard = UUID.fromString("38400000-8cf0-11bd-b23e-10b96e4ef00d");
+        UUID secondCard = UUID.fromString("609e72ac-8be3-4476-8b45-01db8c7f122b");
+        UUID startReader = UUID.randomUUID();
+        UUID endReader = UUID.randomUUID();
 
-
-        startReader.touch(registeredCard);    //starts journey, JourneyStart should be created and added to the eventLog, currentlyTravelling should contain cardID
-
-        eventLog = eventLogger.getEventLog();
-        JourneyEvent expectedStartOfJourney = new JourneyStart(registeredCard.id(), startReader.id());
-        UUID cardIdAtStartOfJourneyInEventLog = eventLog.get(0).cardId();
-        UUID readerIdAtStartOfJourneyInEventLog = eventLog.get(0).readerId();
-
-        assertTrue(cardIdAtStartOfJourneyInEventLog.equals(expectedStartOfJourney.cardId()));
-        assertTrue(readerIdAtStartOfJourneyInEventLog.equals(expectedStartOfJourney.readerId()));
-
-        Set<UUID> currentlyTravelling = eventLogger.getCurrentlyTravelling();
-        assertTrue(currentlyTravelling.contains(registeredCard.id()));
-
-        endReader.touch(registeredCard);   //ends journey, JourneyEnd should be created and added to the eventLog, currentlyTravelling should NOT contain cardID.
-
-        JourneyEvent expectedEndOfJourney = new JourneyEnd(registeredCard.id(), endReader.id());
-        UUID cardIdAtEndOfJourneyInEventLog = eventLog.get(1).cardId();
-        UUID readerIdAtEndOfJourneyInEventLog = eventLog.get(1).readerId();
-
-        assertTrue(cardIdAtEndOfJourneyInEventLog.equals(expectedEndOfJourney.cardId()));
-        assertTrue(readerIdAtEndOfJourneyInEventLog.equals(expectedEndOfJourney.readerId()));
-
-        assertFalse(currentlyTravelling.contains(registeredCard.id()));
-    }
-    @Test
-    public void checkCorrectCreationOfCustomerJourneyEventsList()
-    {
-
-        customerJourneyEventsList = createCustomerJourneyEventsListForTesting();
-
-
-        assertTrue(eventLog.get(0).cardId().equals(customerJourneyEventsList.get(0).cardId()));
-        assertTrue(eventLog.get(0).readerId().equals(customerJourneyEventsList.get(0).readerId()));
-
-        assertTrue(eventLog.get(1).cardId().equals(customerJourneyEventsList.get(1).cardId()));
-        assertTrue(eventLog.get(1).readerId().equals(customerJourneyEventsList.get(1).readerId()));
-
-        assertTrue(eventLog.size() == 3);
-        assertTrue(customerJourneyEventsList.size() == 2);
-    }
-    @Test
-    public void checkCorrectCreationOfJourneyListFromCustomerJourneyEventsList()
-    {
-        customerJourneyEventsList = createCustomerJourneyEventsListForTesting();
-        Journeys journeys = new Journeys(customerJourneyEventsList);
-        List<Journey> customerJourneys = journeys.createListOfJourneysForCustomer();
-
-        assertTrue(customerJourneyEventsList.get(0) instanceof JourneyStart);
-        assertTrue(customerJourneyEventsList.get(1) instanceof JourneyEnd);
-
-        assertTrue(customerJourneys.get(0).originId().equals(customerJourneyEventsList.get(0).readerId()));
-        assertTrue(customerJourneys.get(0).destinationId().equals(customerJourneyEventsList.get(1).readerId()));
-
-        assertTrue(customerJourneys.get(0).getStart().cardId().equals(customerJourneyEventsList.get(0).cardId()));
-        assertTrue(customerJourneys.get(0).getEnd().cardId().equals(customerJourneyEventsList.get(1).cardId()));
-        assertTrue(customerJourneys.size() == 1);
-    }
-
-
-    @Test
-    public void checkChargeAccountsForNoTrips() {
-        TravelTracker travelTracker = new TravelTracker(mockCustomerDatabase, mockPaymentsSystem, eventLogger);
-        context.checking(new Expectations() {{
-
-            Customer customer = new Customer("Naum Anteski", registeredCard);
-            BigDecimal customerTotal = new BigDecimal(0);
-            List<Customer> myCustomers = new ArrayList<>();
-            List<Journey> journeys = new ArrayList<>();
-
-            myCustomers.add(customer);
-            exactly(1).of(mockCustomerDatabase).getCustomers();
-            will(returnValue(myCustomers));
-
-            customerTotal = customerTotal.setScale(2, BigDecimal.ROUND_HALF_UP);
-
-            exactly(1).of(mockPaymentsSystem).charge(customer, journeys, customerTotal);
+        context.checking(new Expectations(){{
+            oneOf(mockCustomerDatabase).isRegisteredId(firstCard); will(returnValue(true));
+            oneOf(mockCustomerDatabase).isRegisteredId(secondCard);will(returnValue(true));
         }});
 
-        travelTracker.chargeAccounts();
+        travelTracker.cardScanned(firstCard, startReader);
+        assertTrue(eventLogForTesting.size() == 1);
+        assertTrue(eventLogForTesting.get(0) instanceof JourneyStart);
+        assertTrue(eventLogForTesting.get(0).cardId().equals(firstCard));
+
+        travelTracker.cardScanned(secondCard, startReader);
+        assertTrue(eventLogForTesting.size() == 2);
+        assertTrue(eventLogForTesting.get(1) instanceof JourneyStart);
+        assertTrue(eventLogForTesting.get(1).cardId().equals(secondCard));
+
+        travelTracker.cardScanned(firstCard, endReader);
+        assertTrue(eventLogForTesting.size() == 3);
+        assertTrue(eventLogForTesting.get(2) instanceof JourneyEnd);
+        assertTrue(eventLogForTesting.get(2).cardId().equals(firstCard));
+
+        travelTracker.cardScanned(secondCard, endReader);
+        assertTrue(eventLogForTesting.size() == 4);
+        assertTrue(eventLogForTesting.get(3) instanceof JourneyEnd);
+        assertTrue(eventLogForTesting.get(3).cardId().equals(secondCard));
     }
 
     @Test
-    public void checkUnknownOysterCardExceptionIsThrownForUnregisteredOysterCardID()
+    public void checkOysterIDCorrectlyAddedAndRemovedFromCurrentlyTravellingSet()
     {
-        EventLog eventLogger = new EventLog();
-        UUID randomOysterId = UUID.randomUUID();
-        UUID randomReaderId = UUID.randomUUID();
-        try{
-            eventLogger.cardScanned(randomOysterId, randomReaderId);
-        }
-        catch (RuntimeException exception){
-            assertThat(exception.getMessage(), is("Oyster Card does not correspond to a known customer. Id: " + randomOysterId));
-        }
+        UUID firstCard = UUID.fromString("38400000-8cf0-11bd-b23e-10b96e4ef00d");
+        UUID firstReader = UUID.randomUUID();
 
-
+        context.checking(new Expectations(){{
+            oneOf(mockCustomerDatabase).isRegisteredId(firstCard);will(returnValue(true));
+        }});
+        travelTracker.cardScanned(firstCard, firstReader);
+        assertTrue(currentlyTravellingSetForTesting.size() == 1);
+        assertTrue(currentlyTravellingSetForTesting.contains(firstCard));
+        travelTracker.cardScanned(firstCard, firstReader);
+        assertTrue(currentlyTravellingSetForTesting.size() == 0);
+        assertFalse(currentlyTravellingSetForTesting.contains(firstCard));
     }
+    @Test
+    public void checkExceptionThrownWithUnregisteredOysterId()
+    {
+        UUID firstCard = UUID.randomUUID();
+        UUID firstReader= UUID.randomUUID();
+        context.checking(new Expectations(){{
+            oneOf(mockCustomerDatabase).isRegisteredId(firstCard);will(returnValue(false));
+        }});
+        try {
+            travelTracker.cardScanned(firstCard, firstReader);
+        } catch (RuntimeException exception){
+            assertThat(exception.getMessage(), is("Oyster Card does not correspond to a known customer. Id: " + firstCard));
+        }
+    }
+    @Test
+    public void checkChargeAccountsWithNoJourneys()
+    {
+        Customer customer = new Customer("Naum Anteski", new OysterCard(UUID.randomUUID().toString()));
+        List<Customer> customers = new ArrayList<>();
+        BigDecimal totalCost = new BigDecimal(0);
+        List<Journey> journeys = new ArrayList<>();
+        context.checking(new Expectations(){{
+            oneOf(mockCustomerDatabase).getCustomers(); will(returnValue(customers));
+            oneOf(mockPaymentsSystem).charge(customer, journeys, totalCost);
+        }});
+        travelTracker.chargeAccounts();
+    }
+    @Test
+    public void checkChargeAccountsWithOneCustomerAndOneJourney()
+    {
+        List<Customer> customers = new ArrayList<>();
+        OysterCard registeredOysterCard = new OysterCard("38400000-8cf0-11bd-b23e-10b96e4ef00d");
+        Customer customer = new Customer("Naum Anteski", registeredOysterCard);
+        OysterCardReader startReader = OysterReaderLocator.atStation(Station.BAKER_STREET);
+        OysterCardReader endReader = OysterReaderLocator.atStation(Station.MARYLEBONE);
 
+        DateTime dateTime = new DateTime().withHourOfDay(11).withMinuteOfHour(0);  //off-peak short journey
+        JourneyEvent testStart = new JourneyStart(registeredOysterCard.id(),startReader.id(),dateTime);
+        JourneyEvent testEnd = new JourneyEnd(registeredOysterCard.id(), endReader.id(), dateTime.plusMinutes(15));
+
+        eventLogForTesting.add(testStart);
+        eventLogForTesting.add(testEnd);
+
+        BigDecimal totalCost = new BigDecimal(1.60).setScale(2,BigDecimal.ROUND_HALF_UP);
+        customers.add(customer);
+
+        context.checking(new Expectations(){{
+            oneOf(mockCustomerDatabase).getCustomers(); will(returnValue(customers));
+            oneOf(costCalculator).customerTotalCost(with(aNonNull(List.class))); will(returnValue(totalCost));
+            oneOf(mockPaymentsSystem).charge(with(equal(customer)), with(aNonNull(List.class)), with(equal(totalCost)));
+        }});
+        travelTracker.chargeAccounts();
+    }
+    @Test
+    public void checkChargeAccountsWithTwoCustomers()
+    {
+        List<Customer> customers = new ArrayList<>();
+
+        OysterCard firstCard = new OysterCard("38400000-8cf0-11bd-b23e-10b96e4ef00d");
+        OysterCard secondCard = new OysterCard("609e72ac-8be3-4476-8b45-01db8c7f122b");
+        Customer firstCustomer = new Customer("Naum Anteski",firstCard);
+        Customer secondCustomer = new Customer("Moiz Hassam", secondCard);
+        customers.add(firstCustomer);
+        customers.add(secondCustomer);
+        OysterCardReader startReader = OysterReaderLocator.atStation(Station.BAKER_STREET);
+        OysterCardReader endReader = OysterReaderLocator.atStation(Station.MARYLEBONE);
+
+        DateTime peakLong = new DateTime().withHourOfDay(17).withMinuteOfHour(0); // peak long journey
+        JourneyEvent firstStartOfJourney = new JourneyStart(firstCard.id(), startReader.id(), peakLong);
+        JourneyEvent firstEndOfJourney = new JourneyStart(firstCard.id(), endReader.id(), peakLong.plusMinutes(35));
+        //first journey is at index 0 and 1
+        eventLogForTesting.add(firstStartOfJourney);
+        eventLogForTesting.add(firstEndOfJourney);
+
+        DateTime peakShort = new DateTime().withHourOfDay(17).withMinuteOfHour(0); // peak short journey
+        JourneyEvent secondStartOfJourney = new JourneyStart(secondCard.id(), startReader.id(), peakShort);
+        JourneyEvent secondEndOfJourney = new JourneyStart(secondCard.id(), endReader.id(), peakShort.plusMinutes(20));
+        //second journey is at index 2 and 3
+        eventLogForTesting.add(secondStartOfJourney);
+        eventLogForTesting.add(secondEndOfJourney);
+
+        BigDecimal firstJourneyCost = new BigDecimal(3.80).setScale(2, BigDecimal.ROUND_HALF_UP);
+        BigDecimal secondJourneyCost = new BigDecimal(2.90).setScale(2, BigDecimal.ROUND_HALF_UP);
+
+        context.checking(new Expectations(){{
+            oneOf(mockCustomerDatabase).getCustomers(); will(returnValue(customers));
+            oneOf(costCalculator).customerTotalCost(with(aNonNull(List.class))); will(returnValue(firstJourneyCost));
+            oneOf(mockPaymentsSystem).charge(with(equal(firstCustomer)), with(aNonNull(List.class)), with(equal(firstJourneyCost)));
+            oneOf(costCalculator).customerTotalCost(with(aNonNull(List.class))); will(returnValue(secondJourneyCost));
+            oneOf(mockPaymentsSystem).charge(with(equal(secondCustomer)), with(aNonNull(List.class)), with(equal(secondJourneyCost)));
+        }});
+        travelTracker.chargeAccounts();
+    }
 }

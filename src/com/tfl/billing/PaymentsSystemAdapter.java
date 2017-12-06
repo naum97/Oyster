@@ -8,17 +8,14 @@ import java.util.List;
 
 
 public class PaymentsSystemAdapter implements GeneralPaymentsSystem {
-    private static PaymentsSystemAdapter instance = new PaymentsSystemAdapter();
-    private PaymentsSystem paymentsSystem = PaymentsSystem.getInstance();
+    private final PaymentsSystem paymentsSystem;
 
-    public static PaymentsSystemAdapter getInstance()
-    {
-        return instance;
+    public PaymentsSystemAdapter(PaymentsSystem paymentsSystem) {
+        this.paymentsSystem = paymentsSystem;
     }
+
     @Override
-    public void charge(Customer customer, List<Journey> journeys, BigDecimal totalCost)
-    {
-        paymentsSystem.charge(customer, journeys, totalCost);
+    public void charge(Customer customer, List<Journey> journeys, BigDecimal totalCost) {
+        paymentsSystem.charge(customer,journeys,totalCost);
     }
-
 }

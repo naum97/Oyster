@@ -2,21 +2,24 @@ package Test;
 
 import com.tfl.billing.*;
 import org.joda.time.DateTime;
+import org.junit.Before;
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import static com.tfl.billing.Fare.*;
+import static com.tfl.billing.FareCalculator.*;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 
-public class FareTest {
-    public Fare fareCalculator = new Fare();
-    public FareTest() throws InterruptedException {
+public class FareCalculatorTest {
+    public FareCalculator fareCalculatorCalculator = new FareCalculator();
+    private List<Journey> journeys;
+
+    public FareCalculatorTest()  {
     }
 
     private UUID cardID = UUID.randomUUID();
@@ -32,7 +35,7 @@ public class FareTest {
 
 
 
-    public Journey createJourneyForFareTest(int startHour, int startMinutes, int durationMinutes) throws InterruptedException {
+    private Journey createJourneyForFareTest(int startHour, int startMinutes, int durationMinutes)  {
 
         DateTime time = new DateTime().withHourOfDay(startHour).withMinuteOfHour(startMinutes);
 
@@ -41,48 +44,47 @@ public class FareTest {
 
         return new Journey(startOfJourney,endOfJourney);
     }
+
+    @Before
+    public void setUp() throws Exception {
+        journeys = new ArrayList<>();
+    }
+
     @Test
-    public void checkCostOfShortOffPeakJourney() throws InterruptedException {
-        List<Journey> journeys = new ArrayList<>();
+    public void checkCostOfShortOffPeakJourney()  {
         journeys.add(shortOffPeakJourney);
-        assertThat(fareCalculator.customerTotalCost(journeys), is(SHORT_OFF_PEAK_JOURNEY_PRICE));
+        assertThat(fareCalculatorCalculator.customerTotalCost(journeys), is(SHORT_OFF_PEAK_JOURNEY_PRICE));
     }
     @Test
-    public void checkCostOfOffPeakLongJourney() throws InterruptedException {
-        List<Journey> journeys = new ArrayList<>();
+    public void checkCostOfOffPeakLongJourney()  {
         journeys.add(longOffPeakJourney);
-        assertThat(fareCalculator.customerTotalCost(journeys), is(LONG_OFF_PEAK_JOURNEY_PRICE));
+        assertThat(fareCalculatorCalculator.customerTotalCost(journeys), is(LONG_OFF_PEAK_JOURNEY_PRICE));
     }
     @Test
-    public void checkCostOfPeakShortJourney() throws InterruptedException {
-        List<Journey> journeys = new ArrayList<>();
+    public void checkCostOfPeakShortJourney()  {
         journeys.add(shortPeakJourney);
-        assertThat(fareCalculator.customerTotalCost(journeys), is(SHORT_PEAK_JOURNEY_PRICE));
+        assertThat(fareCalculatorCalculator.customerTotalCost(journeys), is(SHORT_PEAK_JOURNEY_PRICE));
     }
     @Test
-    public void checkCostOfPeakLongJourney() throws InterruptedException {
-        List<Journey> journeys = new ArrayList<>();
+    public void checkCostOfPeakLongJourney()  {
         journeys.add(longPeakJourney);
-        assertThat(fareCalculator.customerTotalCost(journeys), is(LONG_PEAK_JOURNEY_PRICE));
+        assertThat(fareCalculatorCalculator.customerTotalCost(journeys), is(LONG_PEAK_JOURNEY_PRICE));
     }
     @Test
-    public void checkCostOfJourneyStartingAtOffPeakAndEndingAtPeak() throws InterruptedException {
-        List<Journey> journeys = new ArrayList<>();
+    public void checkCostOfJourneyStartingAtOffPeakAndEndingAtPeak()  {
         journeys.add(journeyStartingAtOffPeakAndEndingAtPeak);
-        assertThat(fareCalculator.customerTotalCost(journeys), is(LONG_PEAK_JOURNEY_PRICE));
+        assertThat(fareCalculatorCalculator.customerTotalCost(journeys), is(LONG_PEAK_JOURNEY_PRICE));
     }
     @Test
-    public void checkCostOfMultipleJourneysLessThanCaps() throws InterruptedException {
-        List<Journey> journeys = new ArrayList<>();
+    public void checkCostOfMultipleJourneysLessThanCaps()  {
         journeys.add(shortPeakJourney);
         journeys.add(shortOffPeakJourney);
-        assertThat(fareCalculator.customerTotalCost(journeys), is(SHORT_PEAK_JOURNEY_PRICE.add(SHORT_OFF_PEAK_JOURNEY_PRICE)));
+        assertThat(fareCalculatorCalculator.customerTotalCost(journeys), is(SHORT_PEAK_JOURNEY_PRICE.add(SHORT_OFF_PEAK_JOURNEY_PRICE)));
     }
     @Test
-    public void  checkOffPeakCap() throws InterruptedException {
+    public void  checkOffPeakCap()  {
         //all journeys are in off peak time, so the cap should be set at 7.00
 
-        List<Journey> journeys = new ArrayList<>();
         journeys.add(shortOffPeakJourney);
         journeys.add(shortOffPeakJourney);
         journeys.add(shortOffPeakJourney);
@@ -90,20 +92,19 @@ public class FareTest {
         journeys.add(shortOffPeakJourney);
         journeys.add(shortOffPeakJourney);
 
-        assertTrue(fareCalculator.customerTotalCost(journeys).doubleValue() == OFF_PEAK_CAP.doubleValue());
+        assertTrue(fareCalculatorCalculator.customerTotalCost(journeys).doubleValue() == OFF_PEAK_CAP.doubleValue());
     }
 
     @Test
     public void checkPeakCap()
     { // one journey is peak, the rest of them are off peak, so the cap should be set at 9.00
-        List<Journey> journeys = new ArrayList<>();
         journeys.add(longPeakJourney);
         journeys.add(shortOffPeakJourney);
         journeys.add(longOffPeakJourney);
         journeys.add(longOffPeakJourney);
         journeys.add(longOffPeakJourney);
         journeys.add(longOffPeakJourney);
-        assertTrue(fareCalculator.customerTotalCost(journeys).doubleValue() == PEAK_CAP.doubleValue());
+        assertTrue(fareCalculatorCalculator.customerTotalCost(journeys).doubleValue() == PEAK_CAP.doubleValue());
     }
 
 

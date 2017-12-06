@@ -4,11 +4,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 
-public class Journeys {
+public class JourneyListCreator {
     private List<Journey> journeys = new ArrayList<>();
     private List<JourneyEvent> customerJourneyEvents;
 
-    public Journeys(List<JourneyEvent> customerJourneyEvents) {
+    public JourneyListCreator(List<JourneyEvent> customerJourneyEvents) {
         this.customerJourneyEvents = customerJourneyEvents;
     }
 
@@ -24,10 +24,6 @@ public class Journeys {
                 start = null;
             }
         }
-        return journeys;
-    }
-
-    public List<Journey> getJourneys() {
         return journeys;
     }
 }
